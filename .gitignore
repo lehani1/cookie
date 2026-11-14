@@ -1,0 +1,9 @@
+node_modules/
+.next/
+data/
+public/pdf.worker.min.mjs
+*.tsbuildinfo
+.env*
+.test-data/
+test-results/
+playwright-report/
