@@ -2,10 +2,16 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   workers: 1,
+  forbidOnly: !!process.env.CI,
+  reporter: process.env.CI
+    ? [["list"], ["html", { open: "never" }]]
+    : "list",
   use: {
     baseURL: "http://127.0.0.1:3001",
     channel: "chromium",
     launchOptions: { args: ["--no-sandbox"] },
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   webServer: {
     command:

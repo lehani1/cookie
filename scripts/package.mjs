@@ -1,5 +1,6 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { version } from "../package.json";
 
 if (!["linux", "win32"].includes(process.platform) || process.arch !== "x64") {
   throw new Error("Packaging supports Linux x64 and Windows x64.");
@@ -21,6 +22,7 @@ await cp(".next/static", path.join(directory, "app/.next/static"), {
 await cp("public", path.join(directory, "app/public"), { recursive: true });
 await cp("README.md", path.join(directory, "README.md"));
 await cp("LICENSE", path.join(directory, "LICENSE"));
+await writeFile(path.join(directory, "VERSION"), `${version}\n`);
 
 const executable = path.join(
   directory,

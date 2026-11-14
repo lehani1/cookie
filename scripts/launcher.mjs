@@ -1,4 +1,10 @@
 import path from "node:path";
+import { version } from "../package.json";
+
+if (process.argv.includes("--version")) {
+  console.log(`cookie ${version}`);
+  process.exit(0);
+}
 
 const directory = path.dirname(process.execPath);
 const server = path.join(directory, "app", "server.js");

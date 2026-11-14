@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { version } from "../package.json";
 
 const platform = process.platform === "win32" ? "windows" : "linux";
 const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "cookie-smoke-"));
@@ -11,6 +12,9 @@ const executable = path.join(
   packageDirectory,
   process.platform === "win32" ? "cookie.exe" : "cookie",
 );
+const versionResult = Bun.spawnSync([executable, "--version"]);
+assert.equal(versionResult.exitCode, 0);
+assert.equal(versionResult.stdout.toString().trim(), `cookie ${version}`);
 const port = "3107";
 const baseUrl = `http://127.0.0.1:${port}/cookie`;
 const server = Bun.spawn([executable], {

@@ -19,8 +19,12 @@ packages on pull requests, pushes to `main` or `master`, and `v*` tags. You can 
 run it manually from the repository's **Actions** tab. Download the matching
 artifact from a completed run, then extract the archive inside it.
 
-- Windows: extract `cookie-windows-x64.zip` and run `cookie.exe`.
-- Linux: extract `cookie-linux-x64.tar.gz` and run `./cookie`.
+- Windows: extract `cookie-v1.0.0-windows-x64.zip` and run `cookie.exe`.
+- Linux: extract `cookie-v1.0.0-linux-x64.tar.gz` and run `./cookie`.
+
+Archive names include the application version. Tagged builds also publish these
+archives and `SHA256SUMS.txt` on the repository's **Releases** page, with generated
+release notes. Branch and pull request builds remain available as Actions artifacts.
 
 Open `http://localhost:3000/cookie` after starting the executable. No separate Bun
 or Node.js installation is needed. Keep the executable beside its `app` folder;
@@ -46,6 +50,42 @@ bun scripts/smoke-package.mjs
 Output is written to `dist/cookie-windows-x64/` or `dist/cookie-linux-x64/`.
 CI checks the executable, home page, static assets, PDF worker, and book uploads/downloads
 before uploading each archive.
+
+The same workflow first runs the full Playwright suite in Chromium on Linux.
+Executable builds require those tests to pass. Failed browser runs upload an HTML
+report, traces, and screenshots as the `browser-test-diagnostics` artifact for
+seven days. Type checks and executable smoke tests also run for both platforms.
+
+### Versioning and publishing a release
+
+`package.json` is the source of the application version (currently `1.0.0`). Each
+package contains a `VERSION` file; `cookie --version` or `cookie.exe --version`
+prints the version without starting the server.
+
+Prepare the next version with one of these commands:
+
+```bash
+bun run version patch # 1.0.0 -> 1.0.1
+bun run version minor # 1.0.0 -> 1.1.0
+bun run version major # 1.0.0 -> 2.0.0
+bun run version 1.2.3 # Set an explicit stable version
+```
+
+Choose one version command, commit `package.json` with the release changes, and
+push a matching `v` tag. For example, to publish the existing `1.0.0` version once
+the workflow changes have been committed:
+
+```bash
+git push origin main
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+CI rejects tags that do not match `package.json`. A release is published only
+after the browser tests, both executable builds, type checks, and smoke tests
+pass. The workflow uploads assets to a draft first, then publishes it; rerunning
+the tag workflow updates the same release's assets. Stable `major.minor.patch`
+versions are supported.
 
 ## Adding books
 

@@ -11,7 +11,45 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    name: Browser tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.3"
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate application and release version
+        id: version
+        run: bun run version check
+      - name: Install Chromium and system dependencies
+        run: bunx playwright install --with-deps chromium
+      - name: Run browser tests
+        run: bun run test
+      - name: Upload browser test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: browser-test-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   build:
+    needs: test
     name: Build ${{ matrix.platform }} x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -25,8 +63,9 @@ jobs:
             platform: windows
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+      APP_VERSION: ${{ needs.test.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
@@ -40,16 +79,50 @@ jobs:
         run: bun scripts/smoke-package.mjs
       - name: Archive Linux app
         if: runner.os == 'Linux'
-        run: tar -czf dist/cookie-linux-x64.tar.gz -C dist cookie-linux-x64
+        run: tar -czf "dist/cookie-v${APP_VERSION}-linux-x64.tar.gz" -C dist cookie-linux-x64
       - name: Archive Windows app
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path dist/cookie-windows-x64 -DestinationPath dist/cookie-windows-x64.zip
+        run: Compress-Archive -Path dist/cookie-windows-x64 -DestinationPath "dist/cookie-v${env:APP_VERSION}-windows-x64.zip"
       - name: Upload portable app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
-          name: cookie-${{ matrix.platform }}-x64
+          name: cookie-v${{ env.APP_VERSION }}-${{ matrix.platform }}-x64
           path: |
             dist/*.tar.gz
             dist/*.zip
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    needs: [test, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Download executable archives
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: cookie-v${{ needs.test.outputs.version }}-*
+          path: release-assets
+          merge-multiple: true
+      - name: Generate checksums
+        working-directory: release-assets
+        run: sha256sum *.tar.gz *.zip > SHA256SUMS.txt
+      - name: Publish archives and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes --title "cookie $RELEASE_TAG"
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false
