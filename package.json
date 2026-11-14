@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "bun --bun next dev --hostname 0.0.0.0",
     "build": "bun --bun next build",
+    "package": "bun run build && bun scripts/package.mjs",
     "start": "bun --bun next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs",
+    "postinstall": "bun scripts/copy-pdf-worker.mjs",
     "test": "python3 tests/create-fixtures.py && playwright test"
   },
   "dependencies": {

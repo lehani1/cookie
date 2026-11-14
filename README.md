@@ -12,6 +12,41 @@ bun run start
 
 Open `http://localhost:3000/cookie` on the host. Other devices on the same network can open `http://<host-ip>:3000/cookie`. The old root `/` no longer serves the app. On Linux, `hostname -I` displays the host IP. The server binds to `0.0.0.0`; the host must stay running and its firewall must allow TCP port 3000. For development, use `bun run dev`.
 
+## Windows and Linux executables
+
+The **Build executables** GitHub Actions workflow builds Windows x64 and Linux x64
+packages on pull requests, pushes to `main` or `master`, and `v*` tags. You can also
+run it manually from the repository's **Actions** tab. Download the matching
+artifact from a completed run, then extract the archive inside it.
+
+- Windows: extract `cookie-windows-x64.zip` and run `cookie.exe`.
+- Linux: extract `cookie-linux-x64.tar.gz` and run `./cookie`.
+
+Open `http://localhost:3000/cookie` after starting the executable. No separate Bun
+or Node.js installation is needed. Keep the executable beside its `app` folder;
+Next.js assets and server dependencies are shipped in that folder. This is a
+portable folder distribution, not a single-file application. Linux packages
+target glibc systems such as Ubuntu 22.04 or newer; Alpine is not supported.
+
+Keep the extracted directory writable. Books are stored in `data/` beside the
+executable by default. Preserve that directory when upgrading, or set
+`LIBRARY_DATA_DIR` to a separate location. `PORT` changes the listening port and
+`COOKIE_HOST` changes the bind address (default `0.0.0.0`). `LIBRARY_ROOT` also
+works with packaged builds. Keep the terminal open while using the app; press
+Ctrl+C to stop it.
+
+To create and check a package locally on Windows x64 or Linux x64:
+
+```bash
+bun install --frozen-lockfile
+bun run package
+bun scripts/smoke-package.mjs
+```
+
+Output is written to `dist/cookie-windows-x64/` or `dist/cookie-linux-x64/`.
+CI checks the executable, home page, static assets, PDF worker, and book uploads/downloads
+before uploading each archive.
+
 ## Adding books
 
 Use **Add books → This device** to upload PDFs or EPUBs from any connected phone, tablet, or computer. Uploads are saved on the host and appear in the shared library. Files are uploaded one at a time; successful uploads are kept if a later file fails.

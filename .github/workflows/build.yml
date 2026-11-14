@@ -1,0 +1,55 @@
+name: Build executables
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.3"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build portable app
+        run: bun run package
+      - name: Check types
+        run: bun run typecheck
+      - name: Smoke test executable
+        run: bun scripts/smoke-package.mjs
+      - name: Archive Linux app
+        if: runner.os == 'Linux'
+        run: tar -czf dist/cookie-linux-x64.tar.gz -C dist cookie-linux-x64
+      - name: Archive Windows app
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path dist/cookie-windows-x64 -DestinationPath dist/cookie-windows-x64.zip
+      - name: Upload portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: cookie-${{ matrix.platform }}-x64
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
